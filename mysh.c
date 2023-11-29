@@ -152,10 +152,11 @@ void mode_Loop(int flag, char* file_name){
 
     while(1){
         if (flag == 0){
+            printf("mysh> ");
             if(getline(&line, &len, stdin) > 0){
                 cmd_Parse(line);
             } else {
-                printf("Error occured\n");
+                printf("Error occured reading a line - interactive\n");
             }
         } else {
             if (getline(&line, &len, fp) > 0){
