@@ -68,22 +68,25 @@ struct cmd_Node create_Node(char* line){
 
     //I tested this but strtok(line,space) will get us individual args separated by spaces
     //The first call will actually be set to the first word, each following call will be set to the next word
-    node_A.cmd = strtok(line, space);
+    split_line = strtok(line, space);
+
+    if ((strcmp(split_line, "then") == 0 )){
+        node_A.then_else = 1;
+        node_A.cmd = strtok(NULL, space);
+    } else if ((strcmp(split_line, "else") == 0 )){
+        node_A.then_else = 2;
+        node_A.cmd = strtok(NULL, space);
+    } else {
+        node_A.then_else = 0;
+        node_A.cmd = strdup(split_line);
+    }
+
     node_A.num_args = 0;
     copy_arguments[node_A.num_args++] = node_A.cmd;
 
-    //Check for then else, It's at the start of the line
-    //I haven't checked but I can change this if capitalization doesnt matter
-    if ((strcmp(node_A.cmd, "Then") == 0 )){
-        node_A.then_else = 1;
-    } else if ((strcmp(node_A.cmd, "Else") == 0 )){
-        node_A.then_else = 2;
-    } else {
-        node_A.then_else = 0;
-    }
-
     while((split_line = strtok(NULL, space)) != NULL){
         //split_line is a a char array not a char so we need to strcmp
+        //add check for pipe symbol
         if (strcmp(split_line, "<") == 0){
             node_A.input = strtok(NULL, space);
             continue;
@@ -121,24 +124,38 @@ void cmd_Parse(char* line){
 }
 
 void mode_Loop(int flag, char* file_name){
-    if (flag == 1){
-        FILE* fp = fopen(file_name, "r");
-        char* line = NULL;
-        size_t len = 0;
+    char* line = NULL;
+    size_t len = 0;
+    FILE* fp = NULL;
+
+    if (flag == 0){
+        printf("Welcome to my shell!\n");
+    } else {
+        fp = fopen(file_name, "r");
+
         if (fp == NULL){
-            printf("No such file");
-            exit(EXIT_FAILURE);
-        }
-
-        while(getline(&line, &len, fp) > 0){
-            cmd_Parse(line);
-        }
-
-    } else{
-        printf("Welcome to my shell!");
-
-
+                printf("No such file\n");
+                exit(EXIT_FAILURE);
+            }
     }
+
+    while(1){
+        if (flag == 0){
+            if(getline(&line, &len, stdin) > 0){
+                cmd_Parse(line);
+            } else {
+                printf("Error occured\n");
+            }
+        } else {
+            if (getline(&line, &len, fp) > 0){
+                cmd_Parse(line);
+            } else {
+                fclose(fp);
+                break;
+            }
+        }
+    }
+
 }
 
 int main(int argc, char ** argv){
