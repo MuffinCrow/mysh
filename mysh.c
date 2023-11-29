@@ -58,72 +58,83 @@ void commandExec (struct cmd_Node* node) {
  * Logic needs to be rewritten, I made a basic template but need to think about a few things
  * 1. Wildcards 2. Piping 3. How input output etc would work.
 */
-struct cmd_Node create_Node(char* line){
-    struct cmd_Node node_A;
+struct cmd_Node* create_Node(char* line){
+    struct cmd_Node* node_A = (struct cmd_Node*)malloc(sizeof(struct cmd_Node));
     const char* space = " ";
     char* split_line;
     //Need a variable sized array for arguments as we don't know it's size
     int temparr_size = 5;
     char** copy_arguments = malloc(sizeof(char*) * temparr_size);
+    if (copy_arguments == NULL){
+        printf("Malloc Failed - copy_arguments\n");
+    }
 
     //I tested this but strtok(line,space) will get us individual args separated by spaces
     //The first call will actually be set to the first word, each following call will be set to the next word
     split_line = strtok(line, space);
 
     if ((strcmp(split_line, "then") == 0 )){
-        node_A.then_else = 1;
-        node_A.cmd = strtok(NULL, space);
+        node_A->then_else = 1;
+        node_A->cmd = strtok(NULL, space);
     } else if ((strcmp(split_line, "else") == 0 )){
-        node_A.then_else = 2;
-        node_A.cmd = strtok(NULL, space);
+        node_A->then_else = 2;
+        node_A->cmd = strtok(NULL, space);
     } else {
-        node_A.then_else = 0;
-        node_A.cmd = strdup(split_line);
+        node_A->then_else = 0;
+        node_A->cmd = strdup(split_line);
     }
 
-    node_A.num_args = 0;
-    copy_arguments[node_A.num_args++] = node_A.cmd;
+    node_A->num_args = 0;
+    copy_arguments[node_A->num_args++] = node_A->cmd;
 
     while((split_line = strtok(NULL, space)) != NULL){
         //split_line is a a char array not a char so we need to strcmp
         //add check for pipe symbol
         if (strcmp(split_line, "<") == 0){
-            node_A.input = strtok(NULL, space);
+            node_A->input = strtok(NULL, space);
             continue;
         }
         if (strcmp(split_line, ">") == 0){
-            node_A.output = strtok(NULL, space);
+            node_A->output = strtok(NULL, space);
             continue;
         }
         //Realloc when necessary, I do this after the strcmp lines as it doesnt matter(we don't add it to the array until after this code)
-        if (node_A.num_args == temparr_size){
+        if (node_A->num_args == temparr_size){
             temparr_size *= 2;
-            copy_arguments = realloc(copy_arguments, sizeof(char*) * temparr_size);
+            char** temp = realloc(copy_arguments, sizeof(char*) * temparr_size);
+            if(temp == NULL){
+                printf("Error in reallocating- temp\n");
+            }else{
+                copy_arguments = temp;
+            }
         }
-
-        copy_arguments[node_A.num_args++] = split_line;
+        copy_arguments[node_A->num_args++] = split_line;
     }
     
-    node_A.arguments = malloc(sizeof(char*) * (node_A.num_args + 1));//NULL pointer at the end of args array
-    for(int i = 0; i < node_A.num_args; i++){
-        node_A.arguments[i] = copy_arguments[i];
+    node_A->arguments = malloc(sizeof(char*) * (node_A->num_args + 1));//NULL pointer at the end of args array
+    if (node_A->arguments == NULL){
+        printf("Malloc Failed - node_A arguments\n");
+    }
+    for(int i = 0; i < node_A->num_args; i++){
+        node_A->arguments[i] = copy_arguments[i];
     }
     free(copy_arguments);
-    node_A.arguments[node_A.num_args] = NULL;
-    node_A.executed = 0;
-    node_A.next_Node = NULL;
-    node_A.prev_Node = NULL;
+    node_A->arguments[node_A->num_args] = NULL;
+    node_A->executed = 0;
+    node_A->next_Node = NULL;
+    node_A->prev_Node = NULL;
 
     return node_A;
 }
 
 void cmd_Parse(char* line){
-    struct cmd_Node node_a = create_Node(line);
 
 
 }
 
 void mode_Loop(int flag, char* file_name){
+    struct cmd_Node* head = NULL;
+    struct cmd_Node* tail = NULL;
     char* line = NULL;
     size_t len = 0;
     FILE* fp = NULL;
@@ -154,8 +165,19 @@ void mode_Loop(int flag, char* file_name){
                 break;
             }
         }
+        struct cmd_Node* node = create_Node(line);
+        if (head == NULL){
+            head = node;
+            tail = node;
+        } else {
+           tail->next_Node = node;
+           tail = node;
+        }
     }
+    //At this point head will be a pointer to the start of the linked list of nodes
 
+
+    free(line);
 }
 
 int main(int argc, char ** argv){
@@ -171,7 +193,7 @@ int main(int argc, char ** argv){
     //commandExec(&node3);
 
     if (argc > 2){
-            printf("mysh.c takes up to one argument");
+        printf("mysh.c takes up to one argument");
         }
 
     if (argc == 2){
