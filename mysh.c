@@ -20,21 +20,54 @@ struct cmd_Node
     struct cmd_Node* prev_Node;
 };
 
+char cwd[4096];
+
+int cwdGrabber () {
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
+        perror("Error obtaining cwd.\n");
+        return 0; //Did not run
+    }
+    //printf("Working Directory: %s\n", cwd);
+    return 1; //Executed successfully
+}
+
 void commandExec (struct cmd_Node* node) {
     if (node == NULL) {
         printf("NULL node executed.\n");
         return;
     }
 
-    while(node != NULL) {
+    if (node->next_Node == NULL) { //the else is for piping
         if  (node->cmd == NULL) {
             printf("NULL command given.\n");
         } else if (strcmp(node->cmd, "cd") == 0) {
             //cd call
             printf("cd\n");
         } else if (strcmp(node->cmd, "pwd") == 0) {
-            //pwd call
-            printf("pwd\n");
+            int check = 0;
+            if ((node->prev_Node != NULL) && (node->then_else != 0)) { //For uses of then or else
+                if (((node->prev_Node->executed == 1) && (node->then_else == 1)) || ((node->prev_Node->executed == 0) && (node->then_else == 2))) {
+                    int fd = 1;
+                    if (node->output != NULL) {
+                        fd = open(node->output, O_WRONLY);
+                        if (fd == -1) {
+                            printf("Error: Failed to open output file.\n"); 
+                            return;
+                        }
+                    }
+                    check = cwdGrabber();
+                    write(fd, cwd, strlen(cwd));
+                    if (fd > 2) {close(fd);}
+                    node->executed = check;
+                }
+            } else if (node->then_else == 2) {
+                printf("Error: No previous execution.");
+                return;
+            } else {
+                check = cwdGrabber();
+                write(1, cwd, strlen(cwd));
+                node->executed = check;
+            }
         } else if (strcmp(node->cmd, "which") == 0) {
             //which call
             printf("which\n");
@@ -43,14 +76,8 @@ void commandExec (struct cmd_Node* node) {
         } else {
             printf("Executes in other directory\n");
         }
-        
-        if (node->next_Node == NULL) {
-            printf("End loop\n");
-            break;
-        } else {
-            printf("Next Node\n");
-            node = node->next_Node;
-        }
+    } else { //piping
+
     }
 }
 
@@ -193,15 +220,22 @@ int main(int argc, char ** argv){
     //commandExec(&node2);
     //commandExec(&node3);
 
-    if (argc > 2){
-        printf("mysh.c takes up to one argument");
-        }
+    // if (argc > 2){
+    //     printf("mysh.c takes up to one argument");
+    //     }
 
-    if (argc == 2){
-        mode_Loop(1, argv[1]);
-    } else {
-        mode_Loop(0, NULL);
-    }
+    // if (argc == 2){
+    //     mode_Loop(1, argv[1]);
+    // } else {
+    //     mode_Loop(0, NULL);
+    // }
 
-    return 0;
+    // return 0;
+
+    // char cwd[4096];
+    // strcpy(cwd, getWorkingDirectory());
+    // printf("Working Directory: %s\n", cwd);
+    // cwdGrabber();
+    // printf("Length: %ld\n", strlen(cwd));
+    // printf("Working Directory: %s\n", cwd);
 }
