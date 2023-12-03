@@ -273,7 +273,7 @@ int main(int argc, char ** argv){
     //node1.next_Node = &node2;
     //node2.prev_Node = &node1;
     //node3.cmd = "pwd";
-    node1.cmd = "testfolder/testfile";
+    // node1.cmd = "testfolder/testfile";
     // char* path = "~/cs214";
     // node1.arguments = malloc(1 * sizeof(path));
     // node1.arguments[0] = path;
@@ -304,5 +304,5 @@ int main(int argc, char ** argv){
     // changeDirectory(&node1);
     // cwdGrabber();
     // printf("Working Directory: %s\n", cwd);
-    commandExec(&node1);
+    // commandExec(&node1);
 }
