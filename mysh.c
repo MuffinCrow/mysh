@@ -22,13 +22,43 @@ struct cmd_Node
 
 char cwd[4096];
 
-int cwdGrabber () {
+int cwdGrabber() {
     if (getcwd(cwd, sizeof(cwd)) == NULL) {
         perror("Error obtaining cwd.\n");
         return 0; //Did not run
     }
     //printf("Working Directory: %s\n", cwd);
     return 1; //Executed successfully
+}
+
+void changeDirectory(struct cmd_Node* node) {
+    if (node->num_args == 0) {
+        int check = chdir(getenv("HOME"));
+        if (check != 0) write(1, "Error: chdir() failed to get to home directory.\n", sizeof("Error: chdir() failed to get to home directory.\n"));
+    } else if (strncmp(node->arguments[0], "~", 1) == 0) {
+        char* home = getenv("HOME");
+        if (home == NULL) {
+            write(1, "Error: Could not obtain home directory.\n", sizeof("Error: Could not obtain home directory.\n"));
+            return;
+        }
+
+        if (sizeof(node->arguments[0]) > 1) {
+            char tempPath[4096];
+            strcpy(tempPath, node->arguments[0] + 1);
+            snprintf(cwd, 4096, "%s%s", home, tempPath);
+        } else {
+            strcpy(cwd, home);
+        }
+
+        if (chdir(cwd) != 0) {
+            write(1, "Error: Could not path from home directory.\n", sizeof("Error: Could not path from home directory.\n"));
+            return;
+        }
+    } else {
+        if (chdir(node->arguments[0]) != 0) {
+            write(1, "Error: cd could not find given path.\n", sizeof("Error: cd could not find given path.\n"));
+        }
+    }
 }
 
 void commandExec (struct cmd_Node* node) {
@@ -41,8 +71,11 @@ void commandExec (struct cmd_Node* node) {
         if  (node->cmd == NULL) {
             printf("NULL command given.\n");
         } else if (strcmp(node->cmd, "cd") == 0) {
-            //cd call
-            printf("cd\n");
+            if (node->num_args < 2) {
+                changeDirectory(node);
+            } else {
+                write(1, "Error: cd provided too many arguments.\n", sizeof("Error: cd provided too many arguments.\n"));
+            }
         } else if (strcmp(node->cmd, "pwd") == 0) {
             int check = 0;
             if ((node->prev_Node != NULL) && (node->then_else != 0)) { //For uses of then or else
@@ -57,15 +90,17 @@ void commandExec (struct cmd_Node* node) {
                     }
                     check = cwdGrabber();
                     write(fd, cwd, strlen(cwd));
+                    printf("\n");
                     if (fd > 2) {close(fd);}
                     node->executed = check;
                 }
             } else if (node->then_else == 2) {
-                printf("Error: No previous execution.");
+                printf("Error: No previous execution.\n");
                 return;
             } else {
                 check = cwdGrabber();
                 write(1, cwd, strlen(cwd));
+                printf("\n");
                 node->executed = check;
             }
         } else if (strcmp(node->cmd, "which") == 0) {
@@ -209,12 +244,17 @@ void mode_Loop(int flag, char* file_name){
 }
 
 int main(int argc, char ** argv){
-    //struct cmd_Node node1 = {0}, node2 = {0}, node3 = {0};
+    struct cmd_Node node1 = {0};
     //node1.cmd = "./your_command";
     //node2.cmd = NULL; // Setting cmd to NULL
     //node1.next_Node = &node2;
     //node2.prev_Node = &node1;
     //node3.cmd = "pwd";
+    // node1.cmd = "cd";
+    // char* path = "~/cs214";
+    // node1.arguments = malloc(1 * sizeof(path));
+    // node1.arguments[0] = path;
+    // node1.num_args = 1;
 
     //commandExec(&node1);
     //commandExec(&node2);
@@ -236,6 +276,9 @@ int main(int argc, char ** argv){
     // strcpy(cwd, getWorkingDirectory());
     // printf("Working Directory: %s\n", cwd);
     // cwdGrabber();
-    // printf("Length: %ld\n", strlen(cwd));
+    // // printf("Length: %ld\n", strlen(cwd));
+    // printf("Working Directory: %s\n", cwd);
+    // changeDirectory(&node1);
+    // cwdGrabber();
     // printf("Working Directory: %s\n", cwd);
 }
