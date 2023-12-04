@@ -573,6 +573,7 @@ struct cmd_Node* create_Node(char* line){
         loop_pos = 2;
     } else {
         node_A->cmd = parsed_Tokens[0];
+        node_A->then_else = 0;
     }
 
     node_A->num_args = 0;
@@ -640,8 +641,7 @@ struct cmd_Node* create_Node(char* line){
         pipe_node->prev_Node = node_A;
         free(new_line);
     }
-
-    freeTokens(parsed_Tokens, tokenCount);
+    
 
     return node_A;
 }
