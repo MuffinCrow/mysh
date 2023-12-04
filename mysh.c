@@ -640,7 +640,8 @@ struct cmd_Node* create_Node(char* line){
         pipe_node->prev_Node = node_A;
         free(new_line);
     }
-    
+
+    freeTokens(parsed_Tokens, tokenCount);
 
     return node_A;
 }
