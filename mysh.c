@@ -511,7 +511,7 @@ struct cmd_Node* create_Node(char* line){
             continue;
         }
         if (strchr(split_line, '*')){
-            wildcards(split_line, copy_arguments, node_A->num_args , &temparr_size);
+            wildcards(split_line, &copy_arguments, &node_A->num_args , &temparr_size);
             continue;
         }
         if (node_A->num_args == temparr_size){
@@ -543,7 +543,7 @@ struct cmd_Node* create_Node(char* line){
         char* new_line = malloc(length_line + 1);
         new_line[0] = '\0';
 
-        while(split_line = strtok(NULL, space) != NULL){
+        while((split_line = strtok(NULL, space)) != NULL){
             strcat(new_line, split_line);
             strcat(new_line, " ");
         }
