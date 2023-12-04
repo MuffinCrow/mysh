@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <glob.h>
@@ -35,7 +36,11 @@ int cwdGrabber() {
 void changeDirectory(struct cmd_Node* node) {
     if (node->num_args == 0) {
         int check = chdir(getenv("HOME"));
-        if (check != 0) write(1, "Error: chdir() failed to get to home directory.\n", sizeof("Error: chdir() failed to get to home directory.\n"));
+        if (check != 0) {
+            write(1, "Error: chdir() failed to get to home directory.\n", sizeof("Error: chdir() failed to get to home directory.\n"));
+            return;
+        }
+        node->executed = 1;
     } else if (strncmp(node->arguments[0], "~", 1) == 0) {
         char* home = getenv("HOME");
         if (home == NULL) {
@@ -55,10 +60,13 @@ void changeDirectory(struct cmd_Node* node) {
             write(1, "Error: Could not path from home directory.\n", sizeof("Error: Could not path from home directory.\n"));
             return;
         }
+        node->executed = 1;
     } else {
         if (chdir(node->arguments[0]) != 0) {
             write(1, "Error: cd could not find given path.\n", sizeof("Error: cd could not find given path.\n"));
+            return;
         }
+        node->executed = 1;
     }
 }
 
@@ -83,7 +91,7 @@ void commandExec (struct cmd_Node* node) {
                 if (((node->prev_Node->executed == 1) && (node->then_else == 1)) || ((node->prev_Node->executed == 0) && (node->then_else == 2))) {
                     int fd = 1;
                     if (node->output != NULL) {
-                        fd = open(node->output, O_WRONLY | O_CREAT | O_TRUNC);
+                        fd = open(node->output, O_WRONLY | O_CREAT | O_TRUNC, 0640);
                         if (fd == -1) {
                             printf("Error: Failed to open output file.\n"); 
                             return;
@@ -99,9 +107,18 @@ void commandExec (struct cmd_Node* node) {
                 printf("Error: No previous execution.\n");
                 return;
             } else {
+                int fd = 1;
+                if (node->output != NULL) {
+                    fd = open(node->output, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+                    if (fd == -1) {
+                        printf("Error: Failed to open output file.\n"); 
+                        return;
+                    }
+                }
                 check = cwdGrabber();
-                write(1, cwd, strlen(cwd));
+                write(fd, cwd, strlen(cwd));
                 printf("\n");
+                if (fd > 2) {close(fd);}
                 node->executed = check;
             }
         } else if (strcmp(node->cmd, "which") == 0) {
@@ -109,7 +126,71 @@ void commandExec (struct cmd_Node* node) {
             printf("which\n");
         } else if (strchr(node->cmd, '/')) {
             if (node->input != NULL || node->output != NULL) {
+                pid_t pid = fork();
 
+                if (pid == -1) {
+                    printf("Error: Failed to fork for redirection.\n");
+                    return;
+                } else if (pid == 0) {
+                    int inputFile;
+                    int outputFile;
+                    if (node->input != NULL) {
+                        inputFile = open(node->input, O_RDONLY);
+                        if (inputFile == -1) {
+                            printf("Error: Could not open input file.\n");
+                            return;
+                        }
+                        
+                        if (dup2(inputFile, STDIN_FILENO) == -1) {
+                            printf("Error: Could not redirect from input file.\n");
+                            close(inputFile);
+                            return;
+                        }
+                        close(inputFile);
+                    }
+                    
+                    if (node->output != NULL) {
+                        outputFile = open(node->output, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+                        if (outputFile == -1) {
+                            printf("Error: Could not open output file.\n");
+                            return;
+                        }
+
+                        if (dup2(outputFile, STDOUT_FILENO) == -1) {
+                            printf("Error: Could not redirected to output file.\n");
+                            close(outputFile);
+                            return;
+                        }
+                        close(outputFile);
+                    }
+
+                    char** newArgs = (char**)malloc(sizeof(char*) * (node->num_args + 1));
+                    if (newArgs == NULL) {
+                        printf("Error: Failed to create memory for first WD args.\n");
+                        return;
+                    }
+
+                    newArgs[0] = (char*)malloc(sizeof(char) * sizeof(node->cmd));
+                    strcpy(newArgs[0], node->cmd);
+
+                    for (int i = 1; i < node->num_args; i++)
+                    {
+                        newArgs[i] = (char*)malloc(sizeof(char) * sizeof(node->arguments[i-1]));
+                        if (newArgs[i] == NULL) {
+                            printf("Error: Failed to create memory for WD args.\n");
+                            return;
+                        }
+                        strcpy(newArgs[i], node->arguments[i-1]);
+                    }
+
+                    int errorCheck = execv(node->cmd, node->arguments);
+                    if (errorCheck == -1) {
+                        printf("Error: Could not execute command with redirects.\n");
+                        return;
+                    }
+                } else {
+                    wait(NULL);
+                }
             } else {
                 char** newArgs = (char**)malloc(sizeof(char*) * (node->num_args + 1));
                 if (newArgs == NULL) {
@@ -130,7 +211,11 @@ void commandExec (struct cmd_Node* node) {
                     strcpy(newArgs[i], node->arguments[i-1]);
                 }
 
-                execv(node->cmd, node->arguments);
+                int errorCheck = execv(node->cmd, node->arguments);
+                if (errorCheck == -1) {
+                    printf("Error: Could not execute command.\n");
+                    return;
+                }
             }
         } else {
             printf("Executes in other directory\n");
@@ -195,7 +280,7 @@ struct cmd_Node* create_Node(char* line){
 
     while((split_line = strtok(NULL, space)) != NULL){
         
-        if(strcmp(split_line, "|" == 0)){
+        if(strcmp(split_line, "|") == 0){
             pipe_found = 1;
             break;
         }
@@ -321,44 +406,44 @@ void mode_Loop(int flag, char* file_name){
 }
 
 int main(int argc, char ** argv){
-    struct cmd_Node node1 = {0};
-    struct cmd_Node node1 = {0};
-    // node1.cmd = "./your_command";
-    //node2.cmd = NULL; // Setting cmd to NULL
-    //node1.next_Node = &node2;
-    //node2.prev_Node = &node1;
-    //node3.cmd = "pwd";
+    // struct cmd_Node node1 = {0};
+    // // node1.cmd = "./your_command";
+    // //node2.cmd = NULL; // Setting cmd to NULL
+    // //node1.next_Node = &node2;
+    // //node2.prev_Node = &node1;
+    // // node3.cmd = "pwd";
     // node1.cmd = "testfolder/testfile";
-    // char* path = "~/cs214";
-    // node1.arguments = malloc(1 * sizeof(path));
-    // node1.arguments[0] = path;
-    // node1.num_args = 1;
+    // // char* path = "~/cs214";
+    // // node1.arguments = malloc(1 * sizeof(path));
+    // // node1.arguments[0] = path;
+    // // node1.num_args = 1;
+    // node1.output = "output.txt";
 
-    //commandExec(&node1);
-    //commandExec(&node2);
-    //commandExec(&node3);
+    // //commandExec(&node1);
+    // //commandExec(&node2);
+    // //commandExec(&node3);
 
-    // if (argc > 2){
-    //     printf("mysh.c takes up to one argument");
-    //     }
+    // // if (argc > 2){
+    // //     printf("mysh.c takes up to one argument");
+    // //     }
 
-    // if (argc == 2){
-    //     mode_Loop(1, argv[1]);
-    // } else {
-    //     mode_Loop(0, NULL);
-    // }
+    // // if (argc == 2){
+    // //     mode_Loop(1, argv[1]);
+    // // } else {
+    // //     mode_Loop(0, NULL);
+    // // }
 
-    // return 0;
+    // // return 0;
 
-    // char cwd[4096];
-    // strcpy(cwd, getWorkingDirectory());
-    // printf("Working Directory: %s\n", cwd);
-    // cwdGrabber();
-    // // printf("Length: %ld\n", strlen(cwd));
-    // printf("Working Directory: %s\n", cwd);
-    // changeDirectory(&node1);
-    // cwdGrabber();
-    // printf("Working Directory: %s\n", cwd);
+    // // char cwd[4096];
+    // // strcpy(cwd, getWorkingDirectory());
+    // // printf("Working Directory: %s\n", cwd);
+    // // cwdGrabber();
+    // // // printf("Length: %ld\n", strlen(cwd));
+    // // printf("Working Directory: %s\n", cwd);
+    // // changeDirectory(&node1);
+    // // cwdGrabber();
+    // // printf("Working Directory: %s\n", cwd);
     // commandExec(&node1);
     return 0;
 }
