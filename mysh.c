@@ -96,6 +96,7 @@ void cmd_Which(struct cmd_Node* node){
                 return;
             }
         }
+        printf("%s -Program not found\n", prog);
     } else if (access(prog, F_OK) == 0){
         printf("%s\n", prog);
     } else {
