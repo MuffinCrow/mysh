@@ -579,11 +579,15 @@ void mode_Loop(int flag, char* file_name){
         if (flag == 0){
             printf("mysh> ");
             if(getline(&line, &len, stdin) > 0){
+                line[strcspn(line, "\n")] = 0;
                 if (strcmp(line, "exit") == 0){
                     printf("mysh: exiting\n");
                     break;
+                } else if(line[0] == '\0'){
+                    printf("Empty command entered.\n");
                 } else {
                     struct cmd_Node* node = create_Node(line);
+                    //printf("reached node creation\n");
                         if (head == NULL){
                             head = node;
                             tail = node;
@@ -591,17 +595,20 @@ void mode_Loop(int flag, char* file_name){
                             node->prev_Node = tail;
                             tail = node;
                         }
-                    commandExec(node);
+                    pipeORexec(node);
                 }
             } else {
                 printf("Error occured reading a line - interactive\n");
             }
         } else {
             if (getline(&line, &len, fp) > 0){
+                line[strcspn(line, "\n")] = 0;
                 if (strcmp(line, "exit") == 0){
                     printf("mysh: exiting\n");
                     break;
-                } else {
+                } else if(line[0] == '\0'){
+                    printf("Empty command entered.\n");
+                } else {    
                     struct cmd_Node* node = create_Node(line);
                     if (head == NULL){
                         head = node;
@@ -610,7 +617,7 @@ void mode_Loop(int flag, char* file_name){
                         node->prev_Node = tail;
                         tail = node;
                     }
-                    commandExec(node);
+                    pipeORexec(node);
                 }
             } else {
                 fclose(fp);
@@ -641,17 +648,15 @@ int main(int argc, char ** argv){
     //commandExec(&node2);
     //commandExec(&node3);
 
-    // if (argc > 2){
-    //     printf("mysh.c takes up to one argument");
-    //     }
+     if (argc > 2){
+         printf("mysh.c takes up to one argument");
+         }
 
-    // if (argc == 2){
-    //     mode_Loop(1, argv[1]);
-    // } else {
-    //     mode_Loop(0, NULL);
-    // }
-
-    // return 0;
+     if (argc == 2){
+         mode_Loop(1, argv[1]);
+     } else {
+         mode_Loop(0, NULL);
+     }
 
     // char cwd[4096];
     // strcpy(cwd, getWorkingDirectory());
@@ -664,5 +669,5 @@ int main(int argc, char ** argv){
     // printf("Working Directory: %s\n", cwd);
     // commandExec(&node1);
     // pipeORexec(&node1);
-    // return 0;
+     return 0;
 }
