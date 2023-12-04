@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <glob.h>
 
 struct cmd_Node
 {
@@ -139,17 +140,37 @@ void commandExec (struct cmd_Node* node) {
     }
 }
 
-/**
- * Logic needs to be rewritten, I made a basic template but need to think about a few things
- * 1. Wildcards 2. Piping 3. How input output etc would work.
-*/
+void wildcards(char* split_line, char*** arg_array, int* num_args, int* array_size){
+    glob_t glob_result;
+    int i;
+
+    if(glob(split_line, GLOB_NOCHECK | GLOB_TILDE, NULL, &glob_result) == 0){
+        //We don't know if the size of the array is large enough to handle all the args being added to the array
+        while(*num_args + glob_result.gl_pathc > *array_size){
+            *array_size *= 2;
+            char** temp = realloc(*arg_array, sizeof(char*) * (*array_size));
+            if(temp == NULL){
+                printf("Error in reallocating arg_array\n");
+                exit(EXIT_FAILURE);
+            }
+            *arg_array = temp;
+        }
+        for(i = 0; i < glob_result.gl_pathc && *num_args < *array_size; i++){
+            (*arg_array)[(*num_args)++] = strdup(glob_result.gl_pathv[i]);
+        }
+    }
+    globfree(&glob_result);
+}
+
 struct cmd_Node* create_Node(char* line){
     struct cmd_Node* node_A = (struct cmd_Node*)malloc(sizeof(struct cmd_Node));
     const char* space = " ";
     char* split_line;
-    //Need a variable sized array for arguments as we don't know it's size
+    int length_line = strlen(line);
     int temparr_size = 5;
     char** copy_arguments = malloc(sizeof(char*) * temparr_size);
+    int pipe_found = 0;
+
     if (copy_arguments == NULL){
         printf("Malloc Failed - copy_arguments\n");
     }
@@ -173,8 +194,11 @@ struct cmd_Node* create_Node(char* line){
     copy_arguments[node_A->num_args++] = node_A->cmd;
 
     while((split_line = strtok(NULL, space)) != NULL){
-        //split_line is a a char array not a char so we need to strcmp
-        //add check for pipe symbol
+        
+        if(strcmp(split_line, "|" == 0)){
+            pipe_found = 1;
+            break;
+        }
         if (strcmp(split_line, "<") == 0){
             node_A->input = strtok(NULL, space);
             continue;
@@ -183,7 +207,10 @@ struct cmd_Node* create_Node(char* line){
             node_A->output = strtok(NULL, space);
             continue;
         }
-        //Realloc when necessary, I do this after the strcmp lines as it doesnt matter(we don't add it to the array until after this code)
+        if (strchr(split_line, '*')){
+            wildcards(split_line, copy_arguments, node_A->num_args , &temparr_size);
+            continue;
+        }
         if (node_A->num_args == temparr_size){
             temparr_size *= 2;
             char** temp = realloc(copy_arguments, sizeof(char*) * temparr_size);
@@ -193,7 +220,7 @@ struct cmd_Node* create_Node(char* line){
                 copy_arguments = temp;
             }
         }
-        copy_arguments[node_A->num_args++] = split_line;
+        copy_arguments[node_A->num_args++] = strdup(split_line);
     }
     
     node_A->arguments = malloc(sizeof(char*) * (node_A->num_args + 1));//NULL pointer at the end of args array
@@ -208,13 +235,23 @@ struct cmd_Node* create_Node(char* line){
     node_A->executed = 0;
     node_A->next_Node = NULL;
     node_A->prev_Node = NULL;
+    //Recursive call for piping in case we want to do dynamic piping.
+    if (pipe_found == 1){
+        char* new_line = malloc(length_line + 1);
+        new_line[0] = '\0';
+
+        while(split_line = strtok(NULL, space) != NULL){
+            strcat(new_line, split_line);
+            strcat(new_line, " ");
+        }
+        struct cmd_Node* pipe_node = create_Node(new_line);
+        node_A->next_Node = pipe_node;
+        pipe_node->prev_Node = node_A;
+        free(new_line);
+    }
+    
 
     return node_A;
-}
-
-void cmd_Parse(char* line){
-
-
 }
 
 void mode_Loop(int flag, char* file_name){
@@ -239,34 +276,52 @@ void mode_Loop(int flag, char* file_name){
         if (flag == 0){
             printf("mysh> ");
             if(getline(&line, &len, stdin) > 0){
-                cmd_Parse(line);
+                if (strcmp(line, "exit") == 0){
+                    printf("mysh: exiting\n");
+                    break;
+                } else {
+                    struct cmd_Node* node = create_Node(line);
+                        if (head == NULL){
+                            head = node;
+                            tail = node;
+                        } else {
+                            node->prev_Node = tail;
+                            tail = node;
+                        }
+                    commandExec(node);
+                }
             } else {
                 printf("Error occured reading a line - interactive\n");
             }
         } else {
             if (getline(&line, &len, fp) > 0){
-                cmd_Parse(line);
+                if (strcmp(line, "exit") == 0){
+                    printf("mysh: exiting\n");
+                    break;
+                } else {
+                    struct cmd_Node* node = create_Node(line);
+                    if (head == NULL){
+                        head = node;
+                        tail = node;
+                    } else {
+                        node->prev_Node = tail;
+                        tail = node;
+                    }
+                    commandExec(node);
+                }
             } else {
                 fclose(fp);
                 break;
             }
         }
-        struct cmd_Node* node = create_Node(line);
-        if (head == NULL){
-            head = node;
-            tail = node;
-        } else {
-           tail->next_Node = node;
-           tail = node;
-        }
     }
-    //At this point head will be a pointer to the start of the linked list of nodes
-
 
     free(line);
+    exit(EXIT_SUCCESS);
 }
 
 int main(int argc, char ** argv){
+    struct cmd_Node node1 = {0};
     struct cmd_Node node1 = {0};
     // node1.cmd = "./your_command";
     //node2.cmd = NULL; // Setting cmd to NULL
@@ -305,4 +360,5 @@ int main(int argc, char ** argv){
     // cwdGrabber();
     // printf("Working Directory: %s\n", cwd);
     // commandExec(&node1);
+    return 0;
 }
