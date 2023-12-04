@@ -5,6 +5,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <glob.h>
@@ -71,42 +72,18 @@ void changeDirectory(struct cmd_Node* node) {
 }
 
 void commandExec (struct cmd_Node* node) {
-    if (node == NULL) {
-        printf("NULL node executed.\n");
-        return;
-    }
-
-    if (node->next_Node == NULL) { //the else is for piping
-        if  (node->cmd == NULL) {
-            printf("NULL command given.\n");
-        } else if (strcmp(node->cmd, "cd") == 0) {
-            if (node->num_args < 2) {
-                changeDirectory(node);
-            } else {
-                write(1, "Error: cd provided too many arguments.\n", sizeof("Error: cd provided too many arguments.\n"));
-            }
-        } else if (strcmp(node->cmd, "pwd") == 0) {
-            int check = 0;
-            if ((node->prev_Node != NULL) && (node->then_else != 0)) { //For uses of then or else
-                if (((node->prev_Node->executed == 1) && (node->then_else == 1)) || ((node->prev_Node->executed == 0) && (node->then_else == 2))) {
-                    int fd = 1;
-                    if (node->output != NULL) {
-                        fd = open(node->output, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-                        if (fd == -1) {
-                            printf("Error: Failed to open output file.\n"); 
-                            return;
-                        }
-                    }
-                    check = cwdGrabber();
-                    write(fd, cwd, strlen(cwd));
-                    printf("\n");
-                    if (fd > 2) {close(fd);}
-                    node->executed = check;
-                }
-            } else if (node->then_else == 2) {
-                printf("Error: No previous execution.\n");
-                return;
-            } else {
+    if  (node->cmd == NULL) {
+        printf("NULL command given.\n");
+    } else if (strcmp(node->cmd, "cd") == 0) {
+        if (node->num_args < 2) {
+            changeDirectory(node);
+        } else {
+            write(1, "Error: cd provided too many arguments.\n", sizeof("Error: cd provided too many arguments.\n"));
+        }
+    } else if (strcmp(node->cmd, "pwd") == 0) {
+        int check = 0;
+        if ((node->prev_Node != NULL) && (node->then_else != 0)) { //For uses of then or else
+            if (((node->prev_Node->executed == 1) && (node->then_else == 1)) || ((node->prev_Node->executed == 0) && (node->then_else == 2))) {
                 int fd = 1;
                 if (node->output != NULL) {
                     fd = open(node->output, O_WRONLY | O_CREAT | O_TRUNC, 0640);
@@ -121,77 +98,72 @@ void commandExec (struct cmd_Node* node) {
                 if (fd > 2) {close(fd);}
                 node->executed = check;
             }
-        } else if (strcmp(node->cmd, "which") == 0) {
-            //which call
-            printf("which\n");
-        } else if (strchr(node->cmd, '/')) {
-            if (node->input != NULL || node->output != NULL) {
-                pid_t pid = fork();
-
-                if (pid == -1) {
-                    printf("Error: Failed to fork for redirection.\n");
+        } else if (node->then_else == 2) {
+            printf("Error: No previous execution.\n");
+            return;
+        } else {
+            int fd = 1;
+            if (node->output != NULL) {
+                fd = open(node->output, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+                if (fd == -1) {
+                    printf("Error: Failed to open output file.\n"); 
                     return;
-                } else if (pid == 0) {
-                    int inputFile;
-                    int outputFile;
-                    if (node->input != NULL) {
-                        inputFile = open(node->input, O_RDONLY);
-                        if (inputFile == -1) {
-                            printf("Error: Could not open input file.\n");
-                            return;
-                        }
-                        
-                        if (dup2(inputFile, STDIN_FILENO) == -1) {
-                            printf("Error: Could not redirect from input file.\n");
-                            close(inputFile);
-                            return;
-                        }
-                        close(inputFile);
+                }
+            }
+            check = cwdGrabber();
+            write(fd, cwd, strlen(cwd));
+            printf("\n");
+            if (fd > 2) {close(fd);}
+            node->executed = check;
+        }
+    } else if (strcmp(node->cmd, "which") == 0) {
+        //which call
+        printf("which\n");
+    } else if (strchr(node->cmd, '/')) {
+        if (node->prev_Node != NULL) {
+            if ((node->prev_Node->executed == 1 && node->then_else == 2) || (node->prev_Node->executed == 0 && node->then_else == 1)) {
+                return;
+            }
+        }
+        if (node->input != NULL || node->output != NULL) {
+            pid_t pid = fork();
+
+            if (pid == -1) {
+                printf("Error: Failed to fork for redirection.\n");
+                return;
+            } else if (pid == 0) {
+                int inputFile;
+                int outputFile;
+                if (node->input != NULL) {
+                    inputFile = open(node->input, O_RDONLY);
+                    if (inputFile == -1) {
+                        printf("Error: Could not open input file.\n");
+                        return;
                     }
                     
-                    if (node->output != NULL) {
-                        outputFile = open(node->output, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-                        if (outputFile == -1) {
-                            printf("Error: Could not open output file.\n");
-                            return;
-                        }
-
-                        if (dup2(outputFile, STDOUT_FILENO) == -1) {
-                            printf("Error: Could not redirected to output file.\n");
-                            close(outputFile);
-                            return;
-                        }
-                        close(outputFile);
-                    }
-
-                    char** newArgs = (char**)malloc(sizeof(char*) * (node->num_args + 1));
-                    if (newArgs == NULL) {
-                        printf("Error: Failed to create memory for first WD args.\n");
+                    if (dup2(inputFile, STDIN_FILENO) == -1) {
+                        printf("Error: Could not redirect from input file.\n");
+                        close(inputFile);
                         return;
                     }
-
-                    newArgs[0] = (char*)malloc(sizeof(char) * sizeof(node->cmd));
-                    strcpy(newArgs[0], node->cmd);
-
-                    for (int i = 1; i < node->num_args; i++)
-                    {
-                        newArgs[i] = (char*)malloc(sizeof(char) * sizeof(node->arguments[i-1]));
-                        if (newArgs[i] == NULL) {
-                            printf("Error: Failed to create memory for WD args.\n");
-                            return;
-                        }
-                        strcpy(newArgs[i], node->arguments[i-1]);
-                    }
-
-                    int errorCheck = execv(node->cmd, node->arguments);
-                    if (errorCheck == -1) {
-                        printf("Error: Could not execute command with redirects.\n");
-                        return;
-                    }
-                } else {
-                    wait(NULL);
+                    close(inputFile);
                 }
-            } else {
+                
+                if (node->output != NULL) {
+                    outputFile = open(node->output, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+                    if (outputFile == -1) {
+                        printf("Error: Could not open output file.\n");
+                        return;
+                    }
+
+                    if (dup2(outputFile, STDOUT_FILENO) == -1) {
+                        printf("Error: Could not redirected to output file.\n");
+                        close(outputFile);
+                        return;
+                    }
+                    close(outputFile);
+                }
+
                 char** newArgs = (char**)malloc(sizeof(char*) * (node->num_args + 1));
                 if (newArgs == NULL) {
                     printf("Error: Failed to create memory for first WD args.\n");
@@ -213,15 +185,261 @@ void commandExec (struct cmd_Node* node) {
 
                 int errorCheck = execv(node->cmd, node->arguments);
                 if (errorCheck == -1) {
-                    printf("Error: Could not execute command.\n");
+                    printf("Error: Could not execute command with redirects.\n");
                     return;
                 }
+                node->executed = 1;
+            } else {
+                wait(NULL);
             }
         } else {
-            printf("Executes in other directory\n");
-        }
-    } else { //piping
+            char** newArgs = (char**)malloc(sizeof(char*) * (node->num_args + 1));
+            if (newArgs == NULL) {
+                printf("Error: Failed to create memory for first WD args.\n");
+                return;
+            }
 
+            newArgs[0] = (char*)malloc(sizeof(char) * sizeof(node->cmd));
+            strcpy(newArgs[0], node->cmd);
+
+            for (int i = 1; i < node->num_args; i++)
+            {
+                newArgs[i] = (char*)malloc(sizeof(char) * sizeof(node->arguments[i-1]));
+                if (newArgs[i] == NULL) {
+                    printf("Error: Failed to create memory for WD args.\n");
+                    return;
+                }
+                strcpy(newArgs[i], node->arguments[i-1]);
+            }
+
+            int errorCheck = execv(node->cmd, node->arguments);
+            if (errorCheck == -1) {
+                printf("Error: Could not execute command.\n");
+                return;
+            }
+            node->executed = 1;
+        }
+    } else {
+        if (node->prev_Node != NULL) {
+            if ((node->prev_Node->executed == 1 && node->then_else == 2) || (node->prev_Node->executed == 0 && node->then_else == 1)) {
+                return;
+            }
+        }
+        char filepath[256];
+        char filepath1[256];
+        char filepath2[256];
+        char filepath3[256];
+        int whichPath = 0;
+
+        snprintf(filepath1, sizeof(filepath1), "/usr/local/bin/%s", node->cmd);
+        snprintf(filepath2, sizeof(filepath2), "/usr/bin/%s", node->cmd);
+        snprintf(filepath3, sizeof(filepath3), "/bin/%s", node->cmd);
+
+        if (access(filepath1, F_OK | X_OK) != -1) {
+            whichPath = 1;
+            strcpy(filepath, filepath1);
+        } else if (access(filepath2, F_OK | X_OK) != -1) {
+            whichPath = 2;
+            strcpy(filepath, filepath2);
+        } else if (access(filepath3, F_OK | X_OK) != -1) {
+            whichPath = 3;
+            strcpy(filepath, filepath3);
+        }
+
+        if (whichPath == 0) {
+            printf("Error: Command not found.\n");
+            return;
+        }
+
+        // **************************************************************************************************************************************************************
+        if (node->input != NULL || node->output != NULL) {
+            pid_t pid = fork();
+
+            if (pid == -1) {
+                printf("Error: Failed to fork for redirection.\n");
+                return;
+            } else if (pid == 0) {
+                int inputFile;
+                int outputFile;
+                if (node->input != NULL) {
+                    inputFile = open(node->input, O_RDONLY);
+                    if (inputFile == -1) {
+                        printf("Error: Could not open input file.\n");
+                        return;
+                    }
+                    
+                    if (dup2(inputFile, STDIN_FILENO) == -1) {
+                        printf("Error: Could not redirect from input file.\n");
+                        close(inputFile);
+                        return;
+                    }
+                    close(inputFile);
+                }
+                
+                if (node->output != NULL) {
+                    outputFile = open(node->output, O_WRONLY | O_CREAT | O_TRUNC, 0640);
+                    if (outputFile == -1) {
+                        printf("Error: Could not open output file.\n");
+                        return;
+                    }
+
+                    if (dup2(outputFile, STDOUT_FILENO) == -1) {
+                        printf("Error: Could not redirected to output file.\n");
+                        close(outputFile);
+                        return;
+                    }
+                    close(outputFile);
+                }
+
+                char** newArgs = (char**)malloc(sizeof(char*) * (node->num_args + 1));
+                if (newArgs == NULL) {
+                    printf("Error: Failed to create memory for first WD args.\n");
+                    return;
+                }
+
+                newArgs[0] = (char*)malloc(sizeof(char) * sizeof(filepath));
+                strcpy(newArgs[0], filepath);
+
+                for (int i = 1; i < node->num_args; i++)
+                {
+                    newArgs[i] = (char*)malloc(sizeof(char) * sizeof(node->arguments[i-1]));
+                    if (newArgs[i] == NULL) {
+                        printf("Error: Failed to create memory for WD args.\n");
+                        return;
+                    }
+                    strcpy(newArgs[i], node->arguments[i-1]);
+                }
+
+                int errorCheck = execv(filepath, node->arguments);
+                if (errorCheck == -1) {
+                    printf("Error: Could not execute command with redirects.\n");
+                    return;
+                }
+                node->executed = 1;
+            } else {
+                wait(NULL);
+            }
+        } else {
+            char** newArgs = (char**)malloc(sizeof(char*) * (node->num_args + 1));
+            if (newArgs == NULL) {
+                printf("Error: Failed to create memory for first WD args.\n");
+                return;
+            }
+
+            newArgs[0] = (char*)malloc(sizeof(char) * sizeof(filepath));
+            strcpy(newArgs[0], filepath);
+
+            for (int i = 1; i < node->num_args; i++)
+            {
+                newArgs[i] = (char*)malloc(sizeof(char) * sizeof(node->arguments[i-1]));
+                if (newArgs[i] == NULL) {
+                    printf("Error: Failed to create memory for WD args.\n");
+                    return;
+                }
+                strcpy(newArgs[i], node->arguments[i-1]);
+            }
+
+            int errorCheck = execv(filepath, node->arguments);
+            if (errorCheck == -1) {
+                printf("Error: Could not execute command.\n");
+                return;
+            }
+            node->executed = 1;
+        }
+        // **************************************************************************************************************************************************************
+    }
+
+}
+
+void pipeORexec (struct cmd_Node* node) {
+    if (node == NULL) {
+        printf("NULL node executed.\n");
+        return;
+    }
+
+    if (node->next_Node == NULL) { //the else is for piping
+        commandExec(node);
+    } else {
+        struct cmd_Node* secnode = node->next_Node;
+        
+        if (secnode->then_else != 0) {
+            printf("Error: Cannot have then or else in the second command of a pipe.\n");
+            return;
+        }
+
+        // **********************************************************************************************************************************************************************************************
+        if (node->output != NULL || secnode->input != NULL) {
+            if (node->output != NULL) {
+                commandExec(node);
+                commandExec(secnode);
+            } else {
+                pid_t pid;
+
+                pid = fork();
+
+                if (pid == -1) {
+                    printf("Error: Failed to create fork while piping and having redirects.\n");
+                    return;
+                }
+
+                if (pid == 0) {
+                    int devNull = open("/dev/null", O_WRONLY);
+                    dup2(devNull, STDOUT_FILENO);
+                    close(devNull);
+
+                    commandExec(node);
+                } else {
+                    wait(NULL);
+
+                    if (node->executed == 1) {
+                        commandExec(secnode);
+                    } else {
+                        printf("Error: First command failed to run. Second command terminated.\n");
+                        return;
+                    }
+                }
+            }
+        } else { // **********************************************************************************************************************************************************************************************
+            int pipefd[2];
+            pid_t pid1, pid2;
+
+            if (pipe(pipefd) == -1) {
+                printf("Error: Failed to pipe.\n");
+                return;
+            }
+
+            if ((pid1 = fork()) == -1) {
+                printf("Error: Failed for fork for pid1.\n");
+                return;
+            }
+
+            if (pid1 == 0) {
+                close(pipefd[0]);
+                dup2(pipefd[1], STDOUT_FILENO);
+                close(pipefd[1]);
+
+                commandExec(node);
+            }
+
+            if ((pid2 = fork()) == -1) {
+                printf("Error: Failed for fork for pid1.\n");
+                return;
+            }
+
+            if (pid2 == 0) {
+                close(pipefd[1]);
+                dup2(pipefd[0], STDIN_FILENO);
+                close(pipefd[0]);
+
+                commandExec(secnode);
+            }
+
+            close(pipefd[0]);
+            close(pipefd[1]);
+
+            wait(NULL); wait(NULL);
+        }
+        // **********************************************************************************************************************************************************************************************
     }
 }
 
@@ -406,44 +624,45 @@ void mode_Loop(int flag, char* file_name){
 }
 
 int main(int argc, char ** argv){
-    // struct cmd_Node node1 = {0};
-    // // node1.cmd = "./your_command";
-    // //node2.cmd = NULL; // Setting cmd to NULL
-    // //node1.next_Node = &node2;
-    // //node2.prev_Node = &node1;
-    // // node3.cmd = "pwd";
-    // node1.cmd = "testfolder/testfile";
-    // // char* path = "~/cs214";
-    // // node1.arguments = malloc(1 * sizeof(path));
-    // // node1.arguments[0] = path;
-    // // node1.num_args = 1;
+    // struct cmd_Node node1 = {0}, node2 = {0};
+    // node1.cmd = "./your_command";
+    //node2.cmd = NULL; // Setting cmd to NULL
+    // node1.next_Node = &node2;
+    // node2.prev_Node = &node1;
+    // node2.cmd = "pwd";
+    // node1.cmd = "ls";
+    // char* path = "~/cs214";
+    // node1.arguments = malloc(1 * sizeof(path));
+    // node1.arguments[0] = path;
+    // node1.num_args = 1;
     // node1.output = "output.txt";
 
-    // //commandExec(&node1);
-    // //commandExec(&node2);
-    // //commandExec(&node3);
+    //commandExec(&node1);
+    //commandExec(&node2);
+    //commandExec(&node3);
 
-    // // if (argc > 2){
-    // //     printf("mysh.c takes up to one argument");
-    // //     }
+    // if (argc > 2){
+    //     printf("mysh.c takes up to one argument");
+    //     }
 
-    // // if (argc == 2){
-    // //     mode_Loop(1, argv[1]);
-    // // } else {
-    // //     mode_Loop(0, NULL);
-    // // }
+    // if (argc == 2){
+    //     mode_Loop(1, argv[1]);
+    // } else {
+    //     mode_Loop(0, NULL);
+    // }
 
-    // // return 0;
+    // return 0;
 
-    // // char cwd[4096];
-    // // strcpy(cwd, getWorkingDirectory());
-    // // printf("Working Directory: %s\n", cwd);
-    // // cwdGrabber();
-    // // // printf("Length: %ld\n", strlen(cwd));
-    // // printf("Working Directory: %s\n", cwd);
-    // // changeDirectory(&node1);
-    // // cwdGrabber();
-    // // printf("Working Directory: %s\n", cwd);
+    // char cwd[4096];
+    // strcpy(cwd, getWorkingDirectory());
+    // printf("Working Directory: %s\n", cwd);
+    // cwdGrabber();
+    // // printf("Length: %ld\n", strlen(cwd));
+    // printf("Working Directory: %s\n", cwd);
+    // changeDirectory(&node1);
+    // cwdGrabber();
+    // printf("Working Directory: %s\n", cwd);
     // commandExec(&node1);
-    return 0;
+    // pipeORexec(&node1);
+    // return 0;
 }
