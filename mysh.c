@@ -11,6 +11,7 @@
 #include <glob.h>
 #include <ctype.h>
 
+
 struct cmd_Node
 {
     char* cmd; //Command to execute
@@ -74,6 +75,35 @@ void changeDirectory(struct cmd_Node* node) {
     }
 }
 
+void cmd_Which(struct cmd_Node* node){
+    if (node->num_args != 1){
+        printf("Failed- given the wrong number of arguments\n");
+        return;
+    }
+    char* prog = strdup(node->arguments[0]);
+    char tempPath[2048];
+    if (strchr(prog, '/') == NULL){
+        const char* dir[] = {"/usr/local/bin", "/usr/bin", "/bin"};
+        //For testing purposes
+        //const char* dir[] = {"/common/home/adt85/cs214/Assignment3/usr/local/bin"};
+        int size_dir = 3;
+
+        for(int i = 0; i < size_dir; i++){
+            snprintf(tempPath, sizeof(tempPath), "%s/%s", dir[i], prog);
+            //printf("Checking: %s\n", tempPath);
+            if(access(tempPath, F_OK) != -1){
+                printf("%s\n", tempPath);
+                return;
+            }
+        }
+    } else if (access(prog, F_OK) == 0){
+        printf("%s\n", prog);
+    } else {
+        printf("%s -Program not found\n", prog);
+    }
+    
+}
+
 void commandExec (struct cmd_Node* node) {
     if  (node->cmd == NULL) {
         printf("NULL command given.\n");
@@ -120,8 +150,8 @@ void commandExec (struct cmd_Node* node) {
             node->executed = check;
         }
     } else if (strcmp(node->cmd, "which") == 0) {
-        //which call
-        printf("which\n");
+        cmd_Which(node);
+        //printf("which\n");
     } else if (strchr(node->cmd, '/')) {
         if (node->prev_Node != NULL) {
             if ((node->prev_Node->executed == 1 && node->then_else == 2) || (node->prev_Node->executed == 0 && node->then_else == 1)) {
@@ -470,7 +500,7 @@ void wildcards(char* split_line, char*** arg_array, int* num_args, int* array_si
 
 char** parseTokens(const char* presplit_token, int* tokenCount){
 
-    int size = 20;
+    int size = 32;
     char** tokens = (char**)malloc(size * sizeof(char*));
 
     if (!tokens){
@@ -542,8 +572,9 @@ void freeTokens(char** tokens, int tokenCount){
 
 struct cmd_Node* create_Node(char* line){
     struct cmd_Node* node_A = (struct cmd_Node*)malloc(sizeof(struct cmd_Node));
+    node_A->num_args = 0;
     int length_line = strlen(line);
-    int temparr_size = 10;
+    int temparr_size = 32;
     char** copy_arguments = malloc(sizeof(char*) * temparr_size);
     int loop_pos = 1;
     int pipe_found = 0;
@@ -575,9 +606,7 @@ struct cmd_Node* create_Node(char* line){
         node_A->cmd = parsed_Tokens[0];
         node_A->then_else = 0;
     }
-
-    node_A->num_args = 0;
-    copy_arguments[node_A->num_args++] = node_A->cmd;
+    
 
     for(int i = loop_pos; i < tokenCount - 1; i++){
         if(strcmp(parsed_Tokens[i], "|") == 0){
@@ -642,7 +671,8 @@ struct cmd_Node* create_Node(char* line){
         free(new_line);
     }
     
-
+    //printf("%d - num_args\n", node_A->num_args);
+    //printf("%s - Arg-0\n", node_A->arguments[0]);
     return node_A;
 }
 
@@ -719,6 +749,7 @@ void mode_Loop(int flag, char* file_name){
     exit(EXIT_SUCCESS);
 }
 
+
 int main(int argc, char ** argv){
     // struct cmd_Node node1 = {0}, node2 = {0};
     // node1.cmd = "./your_command";
@@ -747,6 +778,7 @@ int main(int argc, char ** argv){
          mode_Loop(0, NULL);
      }
 
+    
     // char cwd[4096];
     // strcpy(cwd, getWorkingDirectory());
     // printf("Working Directory: %s\n", cwd);
