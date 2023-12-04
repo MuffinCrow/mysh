@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <glob.h>
+#include <ctype.h>
 
 struct cmd_Node
 {
@@ -24,6 +25,8 @@ struct cmd_Node
 };
 
 char cwd[4096];
+
+#define DEELIMIT_CHAR "<>|"
 
 int cwdGrabber() {
     if (getcwd(cwd, sizeof(cwd)) == NULL) {
@@ -465,14 +468,87 @@ void wildcards(char* split_line, char*** arg_array, int* num_args, int* array_si
     globfree(&glob_result);
 }
 
+char** parseTokens(const char* presplit_token, int* tokenCount){
+
+    int size = 20;
+    char** tokens = (char**)malloc(size * sizeof(char*));
+
+    if (!tokens){
+        printf("Malloc failed - Tokens\n");
+        //Exit
+    }
+
+    *tokenCount = 0;
+
+    const char* current = presplit_token;
+
+    while(*current){
+
+        while(isspace(*current)){
+            current++;
+        }
+
+        if(!*current){
+            break;
+        }
+        int length = 0;
+
+        while (current[length] && !isspace(current[length]) && strchr(DEELIMIT_CHAR, current[length]) == NULL) {
+            length++;
+        }
+
+        if (length > 0) {
+            tokens[*tokenCount] = strndup(current, length);
+            (*tokenCount)++;
+        }
+
+        current += length;
+
+        if (strchr(DEELIMIT_CHAR, *current)) {
+            tokens[*tokenCount] = strndup(current, 1);
+            (*tokenCount)++;
+            current++;
+        }
+
+        if (!*current) {
+            break;
+        }
+
+        
+        if (*tokenCount >= size) {
+            size *= 2;
+            char** temp = realloc(tokens, size * sizeof(char*));
+            if (!temp) {
+                printf("Realloc failed - parseTokens");
+                for (int i = 0; i < *tokenCount; i++) {
+                    free(tokens[i]);
+                }
+                free(tokens);
+                exit(EXIT_FAILURE);
+            }
+            tokens = temp;
+        }
+    }
+
+    return tokens;
+}
+
+void freeTokens(char** tokens, int tokenCount){
+    for(int i = 0; i < tokenCount; i++){
+        free(tokens[i]);
+    }
+    free(tokens);
+}
+
 struct cmd_Node* create_Node(char* line){
     struct cmd_Node* node_A = (struct cmd_Node*)malloc(sizeof(struct cmd_Node));
-    const char* space = " ";
-    char* split_line;
     int length_line = strlen(line);
-    int temparr_size = 5;
+    int temparr_size = 10;
     char** copy_arguments = malloc(sizeof(char*) * temparr_size);
+    int loop_pos = 1;
     int pipe_found = 0;
+    
+    int tokenCount;
 
     if (copy_arguments == NULL){
         printf("Malloc Failed - copy_arguments\n");
@@ -480,38 +556,44 @@ struct cmd_Node* create_Node(char* line){
 
     //I tested this but strtok(line,space) will get us individual args separated by spaces
     //The first call will actually be set to the first word, each following call will be set to the next word
-    split_line = strtok(line, space);
-
-    if ((strcmp(split_line, "then") == 0 )){
+    char** parsed_Tokens = parseTokens(strdup(line), &tokenCount);
+    
+    //Test to see if all tokens are read in correctly
+    //for(int i = 0; i < tokenCount - 1; i++){
+    //    printf("Token %d: %s\n", i, parsed_Tokens[i]);
+    //}
+    //For some reason when testing in a separate file it returns a blank token at the end so tokenCount - 1
+    if(strcmp(parsed_Tokens[0], "then") == 0){
         node_A->then_else = 1;
-        node_A->cmd = strtok(NULL, space);
-    } else if ((strcmp(split_line, "else") == 0 )){
+        node_A->cmd = parsed_Tokens[1];
+        loop_pos = 2;
+    } else if(strcmp(parsed_Tokens[0], "else") == 0){
         node_A->then_else = 2;
-        node_A->cmd = strtok(NULL, space);
+        node_A->cmd = parsed_Tokens[1];
+        loop_pos = 2;
     } else {
-        node_A->then_else = 0;
-        node_A->cmd = strdup(split_line);
+        node_A->cmd = parsed_Tokens[0];
     }
 
     node_A->num_args = 0;
     copy_arguments[node_A->num_args++] = node_A->cmd;
 
-    while((split_line = strtok(NULL, space)) != NULL){
-        
-        if(strcmp(split_line, "|") == 0){
+    for(int i = loop_pos; i < tokenCount - 1; i++){
+        if(strcmp(parsed_Tokens[i], "|") == 0){
+            loop_pos = i + 1;
             pipe_found = 1;
             break;
         }
-        if (strcmp(split_line, "<") == 0){
-            node_A->input = strtok(NULL, space);
+        if (strcmp(parsed_Tokens[i], "<") == 0){
+            node_A->input = parsed_Tokens[++i];
             continue;
         }
-        if (strcmp(split_line, ">") == 0){
-            node_A->output = strtok(NULL, space);
+        if (strcmp(parsed_Tokens[i], ">") == 0){
+            node_A->output = parsed_Tokens[++i];
             continue;
         }
-        if (strchr(split_line, '*')){
-            wildcards(split_line, &copy_arguments, &node_A->num_args , &temparr_size);
+        if (strchr(parsed_Tokens[i], '*')){
+            wildcards(parsed_Tokens[i], &copy_arguments, &node_A->num_args , &temparr_size);
             continue;
         }
         if (node_A->num_args == temparr_size){
@@ -523,9 +605,14 @@ struct cmd_Node* create_Node(char* line){
                 copy_arguments = temp;
             }
         }
-        copy_arguments[node_A->num_args++] = strdup(split_line);
+        char* arg_dup = strdup(parsed_Tokens[i]);
+        if(arg_dup == NULL){
+            printf("Error in strdup\n");
+        }
+        //printf("Reached copy_arg\n");
+        copy_arguments[node_A->num_args++] = arg_dup;
     }
-    
+
     node_A->arguments = malloc(sizeof(char*) * (node_A->num_args + 1));//NULL pointer at the end of args array
     if (node_A->arguments == NULL){
         printf("Malloc Failed - node_A arguments\n");
@@ -543,10 +630,11 @@ struct cmd_Node* create_Node(char* line){
         char* new_line = malloc(length_line + 1);
         new_line[0] = '\0';
 
-        while((split_line = strtok(NULL, space)) != NULL){
-            strcat(new_line, split_line);
+        for(int i = loop_pos; i < tokenCount - 1; i++){
+            strcat(new_line, parsed_Tokens[i]);
             strcat(new_line, " ");
         }
+
         struct cmd_Node* pipe_node = create_Node(new_line);
         node_A->next_Node = pipe_node;
         pipe_node->prev_Node = node_A;
