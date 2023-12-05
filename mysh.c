@@ -217,7 +217,19 @@ void commandExec (struct cmd_Node* node) {
                     strcpy(newArgs[i], node->arguments[i-1]);
                 }
 
-                int errorCheck = execv(node->cmd, node->arguments);
+                int errorCheck;
+                pid_t pid = fork();
+                if (pid == -1) {
+                    printf("Error: Failed to fork before execution.\n");
+                    return;
+                }
+
+                if (pid == 0) {
+                    errorCheck = execv(node->cmd, node->arguments);
+                } else {
+                    wait(NULL);
+                }
+                
                 if (errorCheck == -1) {
                     printf("Error: Could not execute command with redirects.\n");
                     return;
@@ -245,8 +257,19 @@ void commandExec (struct cmd_Node* node) {
                 }
                 strcpy(newArgs[i], node->arguments[i-1]);
             }
+            int errorCheck;
+            pid_t pid = fork();
+            if (pid == -1) {
+                printf("Error: Failed to fork before execution.\n");
+                return;
+            }
 
-            int errorCheck = execv(node->cmd, node->arguments);
+            if (pid == 0) {
+                errorCheck = execv(node->cmd, node->arguments);
+            } else {
+                wait(NULL);
+            }
+
             if (errorCheck == -1) {
                 printf("Error: Could not execute command.\n");
                 return;
@@ -343,8 +366,20 @@ void commandExec (struct cmd_Node* node) {
                     }
                     strcpy(newArgs[i], node->arguments[i-1]);
                 }
+                
+                int errorCheck;
+                pid_t pid = fork();
+                if (pid == -1) {
+                    printf("Error: Failed to fork before execution.\n");
+                    return;
+                }
 
-                int errorCheck = execv(filepath, node->arguments);
+                if (pid == 0) {
+                    errorCheck = execv(filepath, node->arguments);
+                } else {
+                    wait(NULL);
+                }
+
                 if (errorCheck == -1) {
                     printf("Error: Could not execute command with redirects.\n");
                     return;
@@ -373,7 +408,19 @@ void commandExec (struct cmd_Node* node) {
                 strcpy(newArgs[i], node->arguments[i-1]);
             }
 
-            int errorCheck = execv(filepath, node->arguments);
+            int errorCheck;
+            pid_t pid = fork();
+            if (pid == -1) {
+                printf("Error: Failed to fork before execution.\n");
+                return;
+            }
+
+            if (pid == 0) {
+                errorCheck = execv(filepath, node->arguments);
+            } else {
+                wait(NULL);
+            }
+
             if (errorCheck == -1) {
                 printf("Error: Could not execute command.\n");
                 return;
