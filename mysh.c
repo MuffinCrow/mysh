@@ -430,7 +430,7 @@ void commandExec (struct cmd_Node* node) {
             }
 
             if (pid2 == 0) {
-                errorCheck = execv(filepath, newArgs);
+                errorCheck = execv(newArgs[0], newArgs);
                 if (errorCheck == -1) {
                     printf("Error: Could not execute command without redirects.\n");
                     return;
@@ -767,6 +767,9 @@ void mode_Loop(int flag, char* file_name){
                 line[strcspn(line, "\n")] = 0;
                 if (strcmp(line, "exit") == 0){
                     printf("mysh: exiting\n");
+                    while (1 == 1) {
+                        exit(EXIT_SUCCESS);
+                    }
                     break;
                 } else if(line[0] == '\0'){
                     printf("Empty command entered.\n");
@@ -790,6 +793,9 @@ void mode_Loop(int flag, char* file_name){
                 line[strcspn(line, "\n")] = 0;
                 if (strcmp(line, "exit") == 0){
                     printf("mysh: exiting\n");
+                    while (1 == 1) {
+                        exit(EXIT_SUCCESS);
+                    }
                     break;
                 } else if(line[0] == '\0'){
                     printf("Empty command entered.\n");
