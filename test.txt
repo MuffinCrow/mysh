@@ -8,15 +8,7 @@ cat output.txt
 echo Testing wildcard expansion
 touch test1.txt test2.txt
 ls *.txt
-
-echo Testing pipelines
-echo pipeline test | wc -w
-
 echo Testing conditionals
-then echo This should not print
-echo previous command failed | then echo This should print
-false | else echo This should print
-
 echo Testing command search
 which ls
 
@@ -27,8 +19,13 @@ cd nonexistent_directory
 echo Testing multiple redirections and pipes
 echo multi pipe test | grep pipe | wc -w > count.txt
 cat count.txt
-
+echo Testing pipelines
+echo pipeline test | wc -w
+then echo This should print
+echo previous command failed | then echo This should print
+false | else echo This should print
 echo Exit test
 
 echo testing>parsingforcharacters.txt
+
 exit
