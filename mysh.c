@@ -222,25 +222,23 @@ void commandExec (struct cmd_Node* node) {
                 }
 
                 int errorCheck = 0;
-                pid_t pid2 = fork();
-                if (pid2 == -1) {
+                pid_t pid = fork();
+                if (pid == -1) {
                     printf("Error: Failed to fork before execution.\n");
                     return;
                 }
 
-                if (pid2 == 0) {
+                if (pid == 0) {
                     errorCheck = execv(node->cmd, node->arguments);
-                    if (errorCheck == -1) {
-                        printf("Error: Could not execute WD command with redirects.\n");
-                        return;
-                    }
-                    return;
                 } else {
-                   wait(NULL);
+                    wait(NULL);
                 }
 
+                if (errorCheck == -1) {
+                    printf("Error: Could not execute command with redirects.\n");
+                    return;
+                }
                 node->executed = 1;
-                return;
             } else {
                 wait(NULL);
             }
@@ -264,23 +262,22 @@ void commandExec (struct cmd_Node* node) {
                 strcpy(newArgs[i], node->arguments[i-1]);
             }
             int errorCheck = 0;
-            pid_t pid2 = fork();
-            if (pid2 == -1) {
+            pid_t pid = fork();
+            if (pid == -1) {
                 printf("Error: Failed to fork before execution.\n");
                 return;
             }
 
-            if (pid2 == 0) {
+            if (pid == 0) {
                 errorCheck = execv(node->cmd, node->arguments);
-                if (errorCheck == -1) {
-                    printf("Error: Could not execute WD command without redirects.\n");
-                    return;
-                }
-                return;
             } else {
                 wait(NULL);
             }
 
+            if (errorCheck == -1) {
+                printf("Error: Could not execute command.\n");
+                return;
+            }
             node->executed = 1;
         }
     } else {
@@ -380,25 +377,22 @@ void commandExec (struct cmd_Node* node) {
                 }
                 
                 int errorCheck = 0;
-                pid_t pid2 = fork();
-                if (pid2 == -1) {
+                pid_t pid = fork();
+                if (pid == -1) {
                     printf("Error: Failed to fork before execution.\n");
                     return;
                 }
 
-                if (pid2 == 0) {
+                if (pid == 0) {
                     errorCheck = execv(filepath, newArgs);
-                    if (errorCheck == -1) {
-                        printf("Error: Could not execute command with redirects.\n");
-                        return;
-                    }
-                    return;
                 } else {
                     wait(NULL);
                 }
-                
+                if (errorCheck == -1) {
+                    printf("Error: Could not execute command with redirects.\n");
+                    return;
+                }
                 node->executed = 1;
-                return;
             } else {
                 wait(NULL);
             }
@@ -423,23 +417,22 @@ void commandExec (struct cmd_Node* node) {
             }
             
             int errorCheck = 0;
-            pid_t pid2 = fork();
-            if (pid2 == -1) {
+            pid_t pid = fork();
+            if (pid == -1) {
                 printf("Error: Failed to fork before execution.\n");
                 return;
             }
 
-            if (pid2 == 0) {
-                errorCheck = execv(newArgs[0], newArgs);
-                if (errorCheck == -1) {
-                    printf("Error: Could not execute command without redirects.\n");
-                    return;
-                }
-                return;
+            if (pid == 0) {
+                errorCheck = execv(filepath, newArgs);
             } else {
                 wait(NULL);
             }
 
+            if (errorCheck == -1) {
+                printf("Error: Could not execute command.\n");
+                return;
+            }
             node->executed = 1;
         }
         // **************************************************************************************************************************************************************
@@ -484,7 +477,6 @@ void pipeORexec (struct cmd_Node* node) {
                     close(devNull);
 
                     commandExec(node);
-                    return;
                 } else {
                     wait(NULL);
 
@@ -516,7 +508,6 @@ void pipeORexec (struct cmd_Node* node) {
                 close(pipefd[1]);
 
                 commandExec(node);
-                return;
             }
 
             if ((pid2 = fork()) == -1) {
@@ -530,7 +521,6 @@ void pipeORexec (struct cmd_Node* node) {
                 close(pipefd[0]);
 
                 commandExec(secnode);
-                return;
             }
 
             close(pipefd[0]);
@@ -767,9 +757,6 @@ void mode_Loop(int flag, char* file_name){
                 line[strcspn(line, "\n")] = 0;
                 if (strcmp(line, "exit") == 0){
                     printf("mysh: exiting\n");
-                    while (1 == 1) {
-                        exit(EXIT_SUCCESS);
-                    }
                     break;
                 } else if(line[0] == '\0'){
                     printf("Empty command entered.\n");
@@ -793,9 +780,6 @@ void mode_Loop(int flag, char* file_name){
                 line[strcspn(line, "\n")] = 0;
                 if (strcmp(line, "exit") == 0){
                     printf("mysh: exiting\n");
-                    while (1 == 1) {
-                        exit(EXIT_SUCCESS);
-                    }
                     break;
                 } else if(line[0] == '\0'){
                     printf("Empty command entered.\n");
@@ -862,5 +846,20 @@ int main(int argc, char ** argv){
     // printf("Working Directory: %s\n", cwd);
     // commandExec(&node1);
     // pipeORexec(&node1);
+
+    //char* test_pattern = "temp_dir/.txt";
+    //char arg_array = NULL;
+    //int num_args = 0;
+    //int array_size = 10; // Initial size of the array
+    //arg_array = (char)malloc(sizeof(char) * array_size);
+
+    //assert(arg_array != NULL);
+
+    //wildcards(test_pattern, &arg_array, &num_args, &array_size);
+
+    //assert(num_args == 3); // Check if three files were found
+    //assert(strcmp(arg_array[0], "temp_dir/file1.txt") == 0); // Check specific file match
+    //assert(strcmp(arg_array[1], "temp_dir/file2.txt") == 0); // Check specific file match
+    //assert(strcmp(arg_array[2], "temp_dir/file3.txt") == 0); // Check specific file match
      return 0;
 }
