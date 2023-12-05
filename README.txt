@@ -79,3 +79,6 @@ piping input and output for command 1 and 2 of a pipe. Whenever piping occurs, t
 command is waiting for input from the first command. We do not know if this is due to improper forks since we have
 nested forks or if it is due to redirecting incorrectly. Either way, we did not have enough time to fully find where
 the issue was and rectify it.
+
+When an error occurs there is the chance for commands that would work, to stop working so there is the chance that the terminal
+may have to be restarted in order to fully test the code for what works.
