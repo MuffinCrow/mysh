@@ -2,6 +2,8 @@ echo Testing built-in commands
 cd ..
 pwd
 cd - 
+ls
+
 echo Testing file redirection
 echo Redirected text > output.txt
 cat output.txt
@@ -27,5 +29,5 @@ false | else echo This should print
 echo Exit test
 
 echo testing>parsingforcharacters.txt
-
+rm -i test1.txt test2.txt
 exit
