@@ -158,6 +158,10 @@ void commandExec (struct cmd_Node* node) {
             if ((node->prev_Node->executed == 1 && node->then_else == 2) || (node->prev_Node->executed == 0 && node->then_else == 1)) {
                 return;
             }
+        } else {
+            if (node->then_else != 0) {
+                return;
+            }  
         }
         if (node->input != NULL || node->output != NULL) {
             pid_t pid = fork();
@@ -279,6 +283,10 @@ void commandExec (struct cmd_Node* node) {
     } else {
         if (node->prev_Node != NULL) {
             if ((node->prev_Node->executed == 1 && node->then_else == 2) || (node->prev_Node->executed == 0 && node->then_else == 1)) {
+                return;
+            }
+        } else {
+            if (node->then_else != 0) {
                 return;
             }
         }
