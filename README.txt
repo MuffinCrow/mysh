@@ -22,5 +22,8 @@ mode_Loop - is the input loop that is given a flag within main and utilizes this
 main - based on the argument, calls the input loop and passes it the flag that is utilized and any argument received along with it.
 *****Testing*****
 
-
+wildcards- Used asserts after creation of files to check if patterns were matched to find different files.
+which - Tested cases checking specific paths and nonexistent paths as well as files such as ls that are located within usr/bin
+create_Node- tested using for loops and print statements within them that are currently commented out, This also tested parseTokens as it allowed me to see that I was properly getting the argument list.
+mode_Loop and main - tested by running the program using an argument multiple arguments and just ./mysh after running make. Also tested by using an argument of a text file that did not exist to cover that error case. Added print statements for reading empty lines that stated Empty command entered. Also tested by running commands that relied on each other to see if the linked list implementation of the struct worked. 
 *****Errors*****
