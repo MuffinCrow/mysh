@@ -229,7 +229,7 @@ void commandExec (struct cmd_Node* node) {
                 } else {
                     wait(NULL);
                 }
-                
+
                 if (errorCheck == -1) {
                     printf("Error: Could not execute command with redirects.\n");
                     return;
@@ -307,6 +307,7 @@ void commandExec (struct cmd_Node* node) {
             printf("Error: Command not found.\n");
             return;
         }
+        
 
         // **************************************************************************************************************************************************************
         if (node->input != NULL || node->output != NULL) {
@@ -357,7 +358,7 @@ void commandExec (struct cmd_Node* node) {
                 newArgs[0] = (char*)malloc(sizeof(char) * sizeof(filepath));
                 strcpy(newArgs[0], filepath);
 
-                for (int i = 1; i < node->num_args; i++)
+                for (int i = 1; i < node->num_args + 1; i++)
                 {
                     newArgs[i] = (char*)malloc(sizeof(char) * sizeof(node->arguments[i-1]));
                     if (newArgs[i] == NULL) {
@@ -375,7 +376,7 @@ void commandExec (struct cmd_Node* node) {
                 }
 
                 if (pid == 0) {
-                    errorCheck = execv(filepath, node->arguments);
+                    errorCheck = execv(filepath, newArgs);
                 } else {
                     wait(NULL);
                 }
@@ -398,7 +399,7 @@ void commandExec (struct cmd_Node* node) {
             newArgs[0] = (char*)malloc(sizeof(char) * sizeof(filepath));
             strcpy(newArgs[0], filepath);
 
-            for (int i = 1; i < node->num_args; i++)
+            for (int i = 1; i < node->num_args + 1; i++)
             {
                 newArgs[i] = (char*)malloc(sizeof(char) * sizeof(node->arguments[i-1]));
                 if (newArgs[i] == NULL) {
@@ -407,7 +408,7 @@ void commandExec (struct cmd_Node* node) {
                 }
                 strcpy(newArgs[i], node->arguments[i-1]);
             }
-
+            
             int errorCheck;
             pid_t pid = fork();
             if (pid == -1) {
@@ -416,7 +417,7 @@ void commandExec (struct cmd_Node* node) {
             }
 
             if (pid == 0) {
-                errorCheck = execv(filepath, node->arguments);
+                errorCheck = execv(filepath, newArgs);
             } else {
                 wait(NULL);
             }
