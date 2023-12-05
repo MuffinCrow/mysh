@@ -222,23 +222,25 @@ void commandExec (struct cmd_Node* node) {
                 }
 
                 int errorCheck = 0;
-                pid_t pid = fork();
-                if (pid == -1) {
+                pid_t pid2 = fork();
+                if (pid2 == -1) {
                     printf("Error: Failed to fork before execution.\n");
                     return;
                 }
 
-                if (pid == 0) {
+                if (pid2 == 0) {
                     errorCheck = execv(node->cmd, node->arguments);
+                    if (errorCheck == -1) {
+                        printf("Error: Could not execute WD command with redirects.\n");
+                        return;
+                    }
+                    return;
                 } else {
-                    wait(NULL);
+                   wait(NULL);
                 }
 
-                if (errorCheck == -1) {
-                    printf("Error: Could not execute command with redirects.\n");
-                    return;
-                }
                 node->executed = 1;
+                return;
             } else {
                 wait(NULL);
             }
@@ -262,22 +264,23 @@ void commandExec (struct cmd_Node* node) {
                 strcpy(newArgs[i], node->arguments[i-1]);
             }
             int errorCheck = 0;
-            pid_t pid = fork();
-            if (pid == -1) {
+            pid_t pid2 = fork();
+            if (pid2 == -1) {
                 printf("Error: Failed to fork before execution.\n");
                 return;
             }
 
-            if (pid == 0) {
+            if (pid2 == 0) {
                 errorCheck = execv(node->cmd, node->arguments);
+                if (errorCheck == -1) {
+                    printf("Error: Could not execute WD command without redirects.\n");
+                    return;
+                }
+                return;
             } else {
                 wait(NULL);
             }
 
-            if (errorCheck == -1) {
-                printf("Error: Could not execute command.\n");
-                return;
-            }
             node->executed = 1;
         }
     } else {
@@ -377,22 +380,25 @@ void commandExec (struct cmd_Node* node) {
                 }
                 
                 int errorCheck = 0;
-                pid_t pid = fork();
-                if (pid == -1) {
+                pid_t pid2 = fork();
+                if (pid2 == -1) {
                     printf("Error: Failed to fork before execution.\n");
                     return;
                 }
 
-                if (pid == 0) {
+                if (pid2 == 0) {
                     errorCheck = execv(filepath, newArgs);
+                    if (errorCheck == -1) {
+                        printf("Error: Could not execute command with redirects.\n");
+                        return;
+                    }
+                    return;
                 } else {
                     wait(NULL);
                 }
-                if (errorCheck == -1) {
-                    printf("Error: Could not execute command with redirects.\n");
-                    return;
-                }
+                
                 node->executed = 1;
+                return;
             } else {
                 wait(NULL);
             }
@@ -417,22 +423,23 @@ void commandExec (struct cmd_Node* node) {
             }
             
             int errorCheck = 0;
-            pid_t pid = fork();
-            if (pid == -1) {
+            pid_t pid2 = fork();
+            if (pid2 == -1) {
                 printf("Error: Failed to fork before execution.\n");
                 return;
             }
 
-            if (pid == 0) {
+            if (pid2 == 0) {
                 errorCheck = execv(filepath, newArgs);
+                if (errorCheck == -1) {
+                    printf("Error: Could not execute command without redirects.\n");
+                    return;
+                }
+                return;
             } else {
                 wait(NULL);
             }
 
-            if (errorCheck == -1) {
-                printf("Error: Could not execute command.\n");
-                return;
-            }
             node->executed = 1;
         }
         // **************************************************************************************************************************************************************
@@ -477,6 +484,7 @@ void pipeORexec (struct cmd_Node* node) {
                     close(devNull);
 
                     commandExec(node);
+                    return;
                 } else {
                     wait(NULL);
 
@@ -508,6 +516,7 @@ void pipeORexec (struct cmd_Node* node) {
                 close(pipefd[1]);
 
                 commandExec(node);
+                return;
             }
 
             if ((pid2 = fork()) == -1) {
@@ -521,6 +530,7 @@ void pipeORexec (struct cmd_Node* node) {
                 close(pipefd[0]);
 
                 commandExec(secnode);
+                return;
             }
 
             close(pipefd[0]);
