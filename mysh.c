@@ -159,7 +159,7 @@ void commandExec (struct cmd_Node* node) {
                 return;
             }
         } else {
-            if (node->then_else != 0) {
+            if (node->then_else == 2) {
                 return;
             }  
         }
@@ -221,7 +221,7 @@ void commandExec (struct cmd_Node* node) {
                     strcpy(newArgs[i], node->arguments[i-1]);
                 }
 
-                int errorCheck;
+                int errorCheck = 0;
                 pid_t pid = fork();
                 if (pid == -1) {
                     printf("Error: Failed to fork before execution.\n");
@@ -261,7 +261,7 @@ void commandExec (struct cmd_Node* node) {
                 }
                 strcpy(newArgs[i], node->arguments[i-1]);
             }
-            int errorCheck;
+            int errorCheck = 0;
             pid_t pid = fork();
             if (pid == -1) {
                 printf("Error: Failed to fork before execution.\n");
@@ -286,7 +286,7 @@ void commandExec (struct cmd_Node* node) {
                 return;
             }
         } else {
-            if (node->then_else != 0) {
+            if (node->then_else == 2) {
                 return;
             }
         }
@@ -376,7 +376,7 @@ void commandExec (struct cmd_Node* node) {
                     strcpy(newArgs[i], node->arguments[i-1]);
                 }
                 
-                int errorCheck;
+                int errorCheck = 0;
                 pid_t pid = fork();
                 if (pid == -1) {
                     printf("Error: Failed to fork before execution.\n");
@@ -388,7 +388,6 @@ void commandExec (struct cmd_Node* node) {
                 } else {
                     wait(NULL);
                 }
-
                 if (errorCheck == -1) {
                     printf("Error: Could not execute command with redirects.\n");
                     return;
@@ -417,7 +416,7 @@ void commandExec (struct cmd_Node* node) {
                 strcpy(newArgs[i], node->arguments[i-1]);
             }
             
-            int errorCheck;
+            int errorCheck = 0;
             pid_t pid = fork();
             if (pid == -1) {
                 printf("Error: Failed to fork before execution.\n");
@@ -527,7 +526,7 @@ void pipeORexec (struct cmd_Node* node) {
             close(pipefd[0]);
             close(pipefd[1]);
 
-            wait(NULL); wait(NULL);
+            wait(NULL);
         }
         // **********************************************************************************************************************************************************************************************
     }
