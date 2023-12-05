@@ -15,8 +15,11 @@ would be input into commandExec where the command would be executed.
 
 *****Functions******
 
-
-
+cmd_Which- is a built in command function that replaces the normal "which" command to find the path to a program. This implementation searches the three directories("/usr/local/bin", "/usr/bin", "/bin") or if given a path, searches to see if that path exists, and returns the path to the program within the directories or the path given if it exists.
+parseTokens - Is a function that parses through the list of tokens, removes white spaces, and separates special characters. It places each parsed Token into an array and returns this array as well as the amount of tokens that have been added to the array.
+create_Node- is a function that utilizes parseTokens to create our struct based on the information given by the line after being parsed through. It contains a recursive call to itself to add the possibility of creating dynamic piping.
+mode_Loop - is the input loop that is given a flag within main and utilizes this flag to choose whether to run through the loop for batch or interactive mode. It does this until it receieves an "exit" line command and closes out the program.
+main - based on the argument, calls the input loop and passes it the flag that is utilized and any argument received along with it.
 *****Testing*****
 
 
